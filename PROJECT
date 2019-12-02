@@ -1,0 +1,7 @@
+version: "2"
+domain: easystacks.crossplane.io
+repo: github.com/crossplaneio/easy-gcp
+resources:
+- group: gcp
+  version: v1alpha1
+  kind: EasyGCP
