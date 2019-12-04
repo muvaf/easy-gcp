@@ -1,7 +1,6 @@
-bases:
+resources:
   - cache
   - compute
   - database
   - servicenetworking
-resources:
   - provider.yaml

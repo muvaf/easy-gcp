@@ -2,7 +2,7 @@
 apiVersion: database.gcp.crossplane.io/v1beta1
 kind: CloudSQLInstanceClass
 metadata:
-  name: <cr instance name>-cloudsqlinstance-postgresql
+  name: cloudsqlinstance-postgresql
 specTemplate:
   writeConnectionSecretsToNamespace: crossplane-system
   providerRef:
@@ -18,4 +18,4 @@ specTemplate:
       ipConfiguration:
         ipv4Enabled: false
         privateNetworkRef:
-          name: a-network
+          name: network

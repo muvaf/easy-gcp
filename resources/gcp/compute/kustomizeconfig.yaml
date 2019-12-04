@@ -11,12 +11,8 @@ nameReference:
         kind: Subnetwork
       - path: spec/networkRef/name
         kind: GlobalAddress
-      - path: spec/networkRef/name
-        kind: Connection
       - path: specTemplate/networkRef/name
         kind: GKEClusterClass
-      - path: specTemplate/forProvider/settings/ipConfiguration/privateNetworkRef/name
-        kind: CloudSQLInstanceClass
   - kind: Subnetwork
     fieldSpecs:
       - path: spec/name
@@ -31,11 +27,5 @@ nameReference:
         kind: Subnetwork
       - path: spec/providerRef/name
         kind: GlobalAddress
-      - path: spec/providerRef/name
-        kind: Connection
-      - path: specTemplate/providerRef/name
-        kind: CloudMemoryInstanceClass
       - path: specTemplate/providerRef/name
         kind: GKEClusterClass
-      - path: specTemplate/providerRef/name
-        kind: CloudSQLInstanceClass
