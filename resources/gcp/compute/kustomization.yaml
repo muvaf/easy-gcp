@@ -1,0 +1,5 @@
+resources:
+  - globaladdress.yaml
+  - network.yaml
+  - subnetwork.yaml
+  - gkeclusterclass.yaml
