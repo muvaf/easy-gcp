@@ -28,6 +28,7 @@ import (
 
 	"sigs.k8s.io/kustomize/api/types"
 
+	"github.com/crossplaneio/crossplane-runtime/pkg/meta"
 	"github.com/crossplaneio/easy-gcp/pkg/operations"
 
 	"github.com/go-logr/logr"
@@ -61,22 +62,27 @@ func (r *EasyGCPReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{RequeueAfter: shortWait}, err
 	}
 	// todo: use WasDeleted
-	if cr.DeletionTimestamp != nil {
+	if meta.WasDeleted(cr) {
 		return ctrl.Result{Requeue: false}, nil
 	}
 	err := operations.ProcessKustomization(func(k *types.Kustomization) {
 		k.NamePrefix = fmt.Sprintf("%s-", cr.GetName())
 		k.CommonLabels = map[string]string{
-			"gcp.configurationstacks.crossplane.io/name": cr.GetName(),
-			"gcp.configurationstacks.crossplane.io/uid":  string(cr.GetUID()),
+			fmt.Sprintf("%s/name", cr.GroupVersionKind().Group): cr.GetName(),
+			fmt.Sprintf("%s/uid", cr.GroupVersionKind().Group):  string(cr.GetUID()),
 		}
 	})
 	objects, err := operations.RunKustomize()
 	for _, o := range objects {
+		meta.AddOwnerReference(o.(v1.Object), v1.OwnerReference{
+			APIVersion: cr.APIVersion,
+			Kind:       cr.Kind,
+			Name:       cr.GetName(),
+			UID:        cr.GetUID(),
+		})
 		if err := ApplyObject(ctx, r.Client, o); err != nil {
 			return ctrl.Result{RequeueAfter: shortWait}, err
 		}
-		fmt.Printf("deployed %s type!", o.GetObjectKind().GroupVersionKind().String())
 	}
 	return ctrl.Result{RequeueAfter: longWait}, err
 }

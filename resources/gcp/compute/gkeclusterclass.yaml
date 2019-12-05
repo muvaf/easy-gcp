@@ -2,7 +2,7 @@
 apiVersion: compute.gcp.crossplane.io/v1alpha3
 kind: GKEClusterClass
 metadata:
-  name: gkecluster
+  name: gkeclusterclass
 specTemplate:
   writeConnectionSecretsToNamespace: crossplane-system
   machineType: n1-standard-1
