@@ -23,14 +23,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"sigs.k8s.io/kustomize/api/filesys"
 
 	"gopkg.in/yaml.v2"
 
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/api/types"
+
+	"github.com/crossplaneio/easy-gcp/pkg/resource"
 )
 
 const resourcesDirectory = "resources"
@@ -54,13 +54,13 @@ func ProcessKustomization(process func(*types.Kustomization)) error {
 	return ioutil.WriteFile(kustomizationFilePath, yamlData, os.ModePerm)
 }
 
-func RunKustomize() ([]runtime.Object, error) {
+func RunKustomize() ([]resource.Resource, error) {
 	kustomizer := krusty.MakeKustomizer(filesys.MakeFsOnDisk(), krusty.MakeDefaultOptions())
 	resMap, err := kustomizer.Run(resourcesDirectory)
 	if err != nil {
 		return nil, err
 	}
-	var objects []runtime.Object
+	var objects []resource.Resource
 	for _, res := range resMap.Resources() {
 		u := &unstructured.Unstructured{}
 		u.SetUnstructuredContent(res.Map())

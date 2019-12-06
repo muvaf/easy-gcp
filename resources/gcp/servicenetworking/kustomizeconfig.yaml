@@ -7,6 +7,10 @@ nameReference:
     fieldSpecs:
       - path: spec/networkRef/name
         kind: Connection
+  - kind: GlobalAddress
+    fieldSpecs:
+      - path: spec/reservedPeeringRangeRefs/name
+        kind: Connection
   - kind: Provider
     fieldSpecs:
       - path: spec/providerRef/name

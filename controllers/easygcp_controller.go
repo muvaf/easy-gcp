@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/crossplaneio/stack-gcp/apis/v1alpha3"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +32,7 @@ import (
 
 	"github.com/crossplaneio/crossplane-runtime/pkg/meta"
 	"github.com/crossplaneio/easy-gcp/pkg/operations"
+	"github.com/crossplaneio/easy-gcp/pkg/resource"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,7 +44,9 @@ import (
 
 const (
 	shortWait = 30 * time.Second
-	longWait  = 1 * time.Minute
+	longWait  = 3 * time.Minute
+
+	finalizer = "configurationstacks.crossplane.io"
 )
 
 // EasyGCPReconciler reconciles a EasyGCP object
@@ -61,7 +66,6 @@ func (r *EasyGCPReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.Client.Get(ctx, req.NamespacedName, cr); err != nil {
 		return ctrl.Result{RequeueAfter: shortWait}, err
 	}
-	// todo: use WasDeleted
 	if meta.WasDeleted(cr) {
 		return ctrl.Result{Requeue: false}, nil
 	}
@@ -71,41 +75,45 @@ func (r *EasyGCPReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			fmt.Sprintf("%s/name", cr.GroupVersionKind().Group): cr.GetName(),
 			fmt.Sprintf("%s/uid", cr.GroupVersionKind().Group):  string(cr.GetUID()),
 		}
+		for key, val := range cr.GetLabels() {
+			k.CommonLabels[key] = val
+		}
 	})
 	objects, err := operations.RunKustomize()
 	for _, o := range objects {
-		meta.AddOwnerReference(o.(v1.Object), v1.OwnerReference{
-			APIVersion: cr.APIVersion,
-			Kind:       cr.Kind,
-			Name:       cr.GetName(),
-			UID:        cr.GetUID(),
-		})
+		// NOTE(muvaf): Provider types get deleted immediately before managed resource
+		// controllers get a chance to reconcile the deletion.
+		if o.GetObjectKind().GroupVersionKind() != v1alpha3.ProviderGroupVersionKind {
+			t := true
+			meta.AddOwnerReference(o, v1.OwnerReference{
+				APIVersion:         cr.APIVersion,
+				Kind:               cr.Kind,
+				Name:               cr.GetName(),
+				UID:                cr.GetUID(),
+				BlockOwnerDeletion: &t,
+			})
+		}
 		if err := ApplyObject(ctx, r.Client, o); err != nil {
 			return ctrl.Result{RequeueAfter: shortWait}, err
 		}
 	}
+	if err := r.Client.Update(ctx, cr); err != nil {
+		return ctrl.Result{RequeueAfter: shortWait}, err
+	}
 	return ctrl.Result{RequeueAfter: longWait}, err
 }
 
-func ApplyObject(ctx context.Context, kube client.Client, o runtime.Object) error {
-	type Object interface {
-		runtime.Object
-		v1.Object
-	}
-	resource, ok := o.(Object)
-	if !ok {
-		return fmt.Errorf("given object does not have metadata")
-	}
-	existing := resource.DeepCopyObject().(Object)
-	err := kube.Get(ctx, types2.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, existing)
+func ApplyObject(ctx context.Context, kube client.Client, o resource.Resource) error {
+	existing := o.DeepCopyObject().(resource.Resource)
+	err := kube.Get(ctx, types2.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()}, existing)
 	if errors.IsNotFound(err) {
-		return kube.Create(ctx, resource)
+		return kube.Create(ctx, o)
 	}
 	if err != nil {
 		return err
 	}
-	resource.SetResourceVersion(existing.GetResourceVersion())
-	return kube.Patch(ctx, resource, client.MergeFrom(existing))
+	o.SetResourceVersion(existing.GetResourceVersion())
+	return kube.Patch(ctx, o, client.MergeFrom(existing))
 }
 
 func (r *EasyGCPReconciler) SetupWithManager(mgr ctrl.Manager) error {
